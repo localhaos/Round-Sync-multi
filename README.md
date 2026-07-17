@@ -39,6 +39,7 @@ Visit [https://roundsync.com](https://roundsync.com) for more information!
 
 - **File Management** (list, view, download, upload, move, rename, delete files and folders)
 - **Streaming** (Stream media files, serve files and directories over FTP, HTTP, WebDAV or DLNA)
+- **PC LAN client** (Automatically discover an Android WebDAV share and manage files from Windows)
 - **Integration** (Access local storage devices and share files with the application to store them on a remote)
 - **Many cloud storage providers** (all via rclone config import, some without ui-setup)
 - **Material 3 Design** (Dark theme)
@@ -62,6 +63,14 @@ If you don't know which version to pick use ```roundsync-<version>-universal-rel
 
 ## Usage
 [See the documentation](https://roundsync.com/).
+
+### Windows PC client
+
+This fork contains a standalone Windows client in [`desktop/`](desktop/README_PL.md). On Android,
+open a directory, select **Serve…**, and enable **PC / LAN mode**. The Android app generates
+temporary credentials that you enter in the desktop client.
+The desktop app discovers the phone over UDP and connects directly to its WebDAV share. GitHub
+Actions builds a single-file `RoundSync-PC.exe`; no cloud relay is used.
 
 
 ## Intents

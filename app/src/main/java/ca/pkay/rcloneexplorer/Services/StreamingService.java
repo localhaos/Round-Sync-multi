@@ -12,11 +12,14 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import ca.pkay.rcloneexplorer.BroadcastReceivers.ServeCancelAction;
+import ca.pkay.rcloneexplorer.BuildConfig;
 import ca.pkay.rcloneexplorer.Items.RemoteItem;
 import ca.pkay.rcloneexplorer.R;
 import ca.pkay.rcloneexplorer.Rclone;
 import ca.pkay.rcloneexplorer.util.FLog;
 import ca.pkay.rcloneexplorer.util.NotificationUtils;
+
+import java.util.Locale;
 
 
 public class StreamingService extends IntentService {
@@ -39,6 +42,7 @@ public class StreamingService extends IntentService {
     private final int PERSISTENT_NOTIFICATION_ID = 179;
     private Rclone rclone;
     private Process runningProcess;
+    private LanDiscoveryResponder lanDiscoveryResponder;
 
     /**
      * Creates an IntentService.  Invoked by your subclass's constructor.*
@@ -86,12 +90,17 @@ public class StreamingService extends IntentService {
                 .addAction(R.drawable.ic_cancel_download, getString(R.string.cancel), cancelPendingIntent);
 
         if (showNotificationText) {
-            Uri uri = Uri.parse("http://127.0.0.1:" + port);
+            String host = allowRemoteAccess ? getLanAddress() : "127.0.0.1";
+            Uri uri = Uri.parse("http://" + host + ":" + port);
             Intent webPageIntent = new Intent(Intent.ACTION_VIEW, uri);
             webPageIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             PendingIntent webPagePendingIntent = PendingIntent.getActivity(this, 0, webPageIntent, flags);
             builder.setContentIntent(webPagePendingIntent);
-            builder.setContentText(getString(R.string.streaming_service_notification_content, port));
+            if (allowRemoteAccess) {
+                builder.setContentText(getString(R.string.streaming_service_notification_content_lan, uri.toString()));
+            } else {
+                builder.setContentText(getString(R.string.streaming_service_notification_content, port));
+            }
         }
 
         startForeground(PERSISTENT_NOTIFICATION_ID, builder.build());
@@ -112,27 +121,88 @@ public class StreamingService extends IntentService {
                 break;
         }
 
-        if (runningProcess != null) {
-            try {
+        if (runningProcess != null && protocol == SERVE_WEBDAV && allowRemoteAccess) {
+            startLanDiscovery(port, authenticationUsername, authenticationPassword);
+        }
+
+        try {
+            if (runningProcess != null) {
                 runningProcess.waitFor();
-            } catch (InterruptedException e) {
-                FLog.e(TAG, "onHandleIntent: error waiting for process", e);
+                if (runningProcess.exitValue() != 0) {
+                    rclone.logErrorOutput(runningProcess);
+                }
             }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            FLog.e(TAG, "Interrupted while waiting for the streaming process", error);
+        } finally {
+            stopLanDiscovery();
+            stopForeground(true);
         }
-
-        if (runningProcess != null && runningProcess.exitValue() != 0) {
-            rclone.logErrorOutput(runningProcess);
-        }
-
-        stopForeground(true);
     }
 
     @Override
     public void onDestroy() {
+        stopLanDiscovery();
         super.onDestroy();
         if (null != runningProcess) {
             runningProcess.destroy();
         }
+    }
+
+    private void startLanDiscovery(int port, String username, String password) {
+        boolean authenticationRequired = (username != null && !username.isEmpty())
+                || (password != null && !password.isEmpty());
+        String manufacturer = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.trim();
+        String model = Build.MODEL == null ? "Android" : Build.MODEL.trim();
+        String deviceName = manufacturer.isEmpty()
+                || model.toLowerCase(Locale.ROOT).startsWith(manufacturer.toLowerCase(Locale.ROOT))
+                ? model
+                : manufacturer + " " + model;
+
+        lanDiscoveryResponder = new LanDiscoveryResponder(
+                port,
+                deviceName,
+                BuildConfig.VERSION_NAME,
+                authenticationRequired);
+        try {
+            lanDiscoveryResponder.start();
+        } catch (Exception error) {
+            FLog.e(TAG, "Unable to start LAN discovery", error);
+            stopLanDiscovery();
+        }
+    }
+
+    private void stopLanDiscovery() {
+        if (lanDiscoveryResponder != null) {
+            lanDiscoveryResponder.close();
+            lanDiscoveryResponder = null;
+        }
+    }
+
+    private String getLanAddress() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                java.net.NetworkInterface networkInterface = interfaces.nextElement();
+                if (!networkInterface.isUp() || networkInterface.isLoopback()) {
+                    continue;
+                }
+                java.util.Enumeration<java.net.InetAddress> addresses = networkInterface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress address = addresses.nextElement();
+                    if (address instanceof java.net.Inet4Address
+                            && !address.isLoopbackAddress()
+                            && !address.isLinkLocalAddress()) {
+                        return address.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception error) {
+            FLog.w(TAG, "Unable to determine LAN address: %s", error.getMessage());
+        }
+        return "0.0.0.0";
     }
 
     private void setNotificationChannel() {

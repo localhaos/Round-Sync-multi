@@ -1,0 +1,85 @@
+name: Desktop client
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run desktop tests
+        working-directory: desktop
+        run: python -m unittest discover -s tests -v
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deterministic packager
+        run: python -m pip install --disable-pip-version-check "pyinstaller==6.16.0"
+
+      - name: Build single-file Windows application
+        run: >-
+          python -m PyInstaller
+          --noconfirm
+          --clean
+          --onefile
+          --windowed
+          --name RoundSync-PC
+          --paths desktop
+          desktop/roundsync_pc/__main__.py
+
+      - name: Generate SHA-256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 dist/RoundSync-PC.exe).Hash.ToLowerInvariant()
+          "$hash  RoundSync-PC.exe" | Set-Content -Encoding ascii dist/RoundSync-PC.exe.sha256
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: RoundSync-PC-windows-x64
+          path: |
+            dist/RoundSync-PC.exe
+            dist/RoundSync-PC.exe.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attach desktop client to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/RoundSync-PC.exe
+            dist/RoundSync-PC.exe.sha256

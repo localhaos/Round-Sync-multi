@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.CheckBox;
@@ -24,12 +25,15 @@ import com.google.android.material.textfield.TextInputLayout;
 import ca.pkay.rcloneexplorer.R;
 import ca.pkay.rcloneexplorer.Rclone;
 
+import java.security.SecureRandom;
+
 public class ServeDialog extends DialogFragment {
 
     private Context context;
     private Callback callback;
     private RadioGroup protocol;
     private CheckBox allowRemoteAccess;
+    private CheckBox pcLanMode;
     private EditText user;
     private EditText password;
 
@@ -51,6 +55,7 @@ public class ServeDialog extends DialogFragment {
 
         protocol = view.findViewById(R.id.radio_group_protocol);
         allowRemoteAccess = view.findViewById(R.id.checkbox_allow_remote_access);
+        pcLanMode = view.findViewById(R.id.checkbox_pc_lan_mode);
         user = view.findViewById(R.id.edit_text_user);
         password = view.findViewById(R.id.edit_text_password);
 
@@ -58,6 +63,12 @@ public class ServeDialog extends DialogFragment {
         if (pref.contains(getString(R.string.pref_choice_serve_dialog_allow_ext))) {
             boolean checked = pref.getBoolean(getString(R.string.pref_choice_serve_dialog_allow_ext), false);
             allowRemoteAccess.setChecked(checked);
+        }
+        if (pref.getBoolean(getString(R.string.pref_choice_serve_dialog_pc_mode), false)) {
+            pcLanMode.setChecked(true);
+            protocol.check(R.id.radio_webdav);
+            allowRemoteAccess.setChecked(true);
+            ensurePcCredentials();
         }
 
         ((TextInputLayout) view.findViewById(R.id.text_input_layout_user)).setHint("Username");
@@ -78,6 +89,15 @@ public class ServeDialog extends DialogFragment {
             }
         });
 
+        pcLanMode.setOnCheckedChangeListener((button, isChecked) -> {
+            if (isChecked) {
+                protocol.check(R.id.radio_webdav);
+                allowRemoteAccess.setChecked(true);
+                ensurePcCredentials();
+                Snackbar.make(button, R.string.serve_dialog_pc_mode_notice, Snackbar.LENGTH_LONG).show();
+            }
+        });
+
         return builder.show();
     }
 
@@ -86,6 +106,7 @@ public class ServeDialog extends DialogFragment {
         super.onSaveInstanceState(outState);
         outState.putInt("protocol", protocol.getCheckedRadioButtonId());
         outState.putBoolean("allowRemoteAccess", allowRemoteAccess.isChecked());
+        outState.putBoolean("pcLanMode", pcLanMode.isChecked());
         if (!user.getText().toString().trim().isEmpty()) {
             outState.putString("user", user.getText().toString());
         }
@@ -102,6 +123,7 @@ public class ServeDialog extends DialogFragment {
         }
 
         allowRemoteAccess.setChecked(savedInstanceState.getBoolean("allowRemoteAccess", false));
+        pcLanMode.setChecked(savedInstanceState.getBoolean("pcLanMode", false));
         String savedUser = savedInstanceState.getString("user");
         if (savedUser != null) {
             user.setText(savedUser);
@@ -130,6 +152,11 @@ public class ServeDialog extends DialogFragment {
     }
 
     private void sendCallback() {
+        if (pcLanMode.isChecked()) {
+            protocol.check(R.id.radio_webdav);
+            allowRemoteAccess.setChecked(true);
+            ensurePcCredentials();
+        }
         int selectedProtocolId = protocol.getCheckedRadioButtonId();
         int selectedProtocol;
         switch (selectedProtocolId) {
@@ -151,8 +178,22 @@ public class ServeDialog extends DialogFragment {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putBoolean(getString(R.string.pref_choice_serve_dialog_allow_ext), allowRemoteAccess.isChecked())
+                .putBoolean(getString(R.string.pref_choice_serve_dialog_pc_mode), pcLanMode.isChecked())
                 .apply();
 
         callback.onServeOptionsSelected(selectedProtocol, allowRemoteAccess.isChecked(), user.getText().toString(), password.getText().toString());
+    }
+
+    private void ensurePcCredentials() {
+        if (user.getText().toString().trim().isEmpty()) {
+            user.setText("roundsync");
+        }
+        if (password.getText().toString().isEmpty()) {
+            byte[] randomBytes = new byte[18];
+            new SecureRandom().nextBytes(randomBytes);
+            password.setText(Base64.encodeToString(
+                    randomBytes,
+                    Base64.NO_PADDING | Base64.NO_WRAP | Base64.URL_SAFE));
+        }
     }
 }

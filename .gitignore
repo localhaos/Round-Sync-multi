@@ -15,7 +15,14 @@ out/
 
 # Gradle files
 .gradle/
+.gradle-work/
 build/
+
+# Python desktop client
+__pycache__/
+*.py[cod]
+dist/
+*.spec
 
 # Local configuration file (sdk path, etc)
 local.properties

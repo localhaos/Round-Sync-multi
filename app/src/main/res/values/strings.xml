@@ -54,6 +54,7 @@
     <string name="worker_download_complete">Download complete</string>
     <string name="streaming_service_notification_title">Streaming Service</string>
     <string name="streaming_service_notification_content">Serving on http://127.0.0.1:%1$d</string>
+    <string name="streaming_service_notification_content_lan">LAN share: %1$s</string>
     <string name="streaming_service_notification_channel_description">Streaming service</string>
     <string name="streaming_task_failed">Could not stream file</string>
     <string name="rcd_service_notification_channel_description">Background Service</string>
@@ -270,7 +271,10 @@
     <string name="serve_dialog_title">Serve a remote</string>
     <string name="serve_dialog_remote_notice_enabled">The current directory will be visible on the local network to devices such as TVs and media players.</string>
     <string name="serve_dialog_remote_notice_disabled">Files will not be accessible by other devices on the network.</string>
+    <string name="serve_dialog_pc_mode">PC / LAN mode</string>
+    <string name="serve_dialog_pc_mode_notice">Uses WebDAV and allows LAN access. Secure temporary credentials were generated; enter them on the PC.</string>
     <string name="pref_choice_serve_dialog_allow_ext" translatable="false">choice_serve_allow_ext</string>
+    <string name="pref_choice_serve_dialog_pc_mode" translatable="false">choice_serve_pc_mode</string>
     <string name="config_use_external_question">Import found configuration?</string>
     <string name="config_import_external_explain">Automatically import from %1$s</string>
     <string name="pref_header_file_access">File Access</string>

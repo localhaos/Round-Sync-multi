@@ -1,3 +1,10 @@
+### 2.5.7
+* **New:** Windows PC client with automatic LAN discovery and WebDAV file management
+* **New:** PC / LAN sharing mode with temporary generated credentials
+* **Security:** Discovery responses never contain credentials or shared paths
+
+***
+
 ### 1.12.0
 * **New:** Support for accessing cloud files from other apps (SAF DocumentProvider)
 * **New:** Support for all DocumentProviders
