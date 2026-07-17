@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
 Discovers a Round Sync WebDAV server in the local network and mounts it as a Windows drive.
@@ -17,7 +17,7 @@ Run from an elevated Windows PowerShell 5.1 session or use the accompanying CMD 
 
 [CmdletBinding()]
 param(
-    [ValidatePattern('^[D-Za-z]:?$')]
+    [ValidatePattern('^[D-Zd-z]:?$')]
     [string] $DriveLetter,
 
     [ValidateNotNull()]
@@ -297,13 +297,6 @@ function Test-WebDavEndpoint {
                     return $true
                 }
 
-                $allowValues = $null
-                if (
-                    $optionsResponse.Headers.TryGetValues('Allow', [ref] $allowValues) -and
-                    (($allowValues -join ',') -match '(^|,|\s)PROPFIND($|,|\s)')
-                ) {
-                    return $true
-                }
             }
             finally {
                 $optionsResponse.Dispose()
@@ -591,6 +584,7 @@ function Add-NetworkDrive {
     $networkCredential = $AuthCredential.GetNetworkCredential()
     $flags = if ($Persist) { 1 } else { 0 } # CONNECT_UPDATE_PROFILE
 
+    $result = -1
     try {
         $result = [RoundSync.NativeMethods]::WNetAddConnection2(
             [ref] $resource,
@@ -619,6 +613,9 @@ try {
             throw 'W trybie -NonInteractive wymagany jest parametr -Credential.'
         }
         $Credential = Get-Credential -Message 'Podaj dane logowania serwera WebDAV'
+        if ($null -eq $Credential) {
+            throw 'Anulowano podawanie danych logowania.'
+        }
     }
 
     $resolvedUri = if ($null -ne $ServerUri) {
