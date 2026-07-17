@@ -52,6 +52,12 @@
         android:layout_height="wrap_content"
         android:text="@string/allow_remote_access" />
 
+    <CheckBox
+        android:id="@+id/checkbox_pc_lan_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/serve_dialog_pc_mode" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -54,6 +54,7 @@
     <string name="worker_download_complete">Download complete</string>
     <string name="streaming_service_notification_title">Streaming Service</string>
     <string name="streaming_service_notification_content">Serving on http://127.0.0.1:%1$d</string>
+    <string name="streaming_service_notification_content_lan">LAN share: %1$s</string>
     <string name="streaming_service_notification_channel_description">Streaming service</string>
     <string name="streaming_task_failed">Could not stream file</string>
     <string name="rcd_service_notification_channel_description">Background Service</string>
@@ -270,10 +271,28 @@
     <string name="serve_dialog_title">Serve a remote</string>
     <string name="serve_dialog_remote_notice_enabled">The current directory will be visible on the local network to devices such as TVs and media players.</string>
     <string name="serve_dialog_remote_notice_disabled">Files will not be accessible by other devices on the network.</string>
+    <string name="serve_dialog_pc_mode">PC / LAN mode</string>
+    <string name="serve_dialog_pc_mode_notice">Uses WebDAV and allows LAN access. Secure temporary credentials were generated; enter them on the PC.</string>
     <string name="pref_choice_serve_dialog_allow_ext" translatable="false">choice_serve_allow_ext</string>
+    <string name="pref_choice_serve_dialog_pc_mode" translatable="false">choice_serve_pc_mode</string>
     <string name="config_use_external_question">Import found configuration?</string>
     <string name="config_import_external_explain">Automatically import from %1$s</string>
     <string name="pref_header_file_access">File Access</string>
+    <string name="pref_shizuku_category">Privileged file access</string>
+    <string name="pref_shizuku_enable">Use Shizuku</string>
+    <string name="pref_shizuku_summary">Run rclone with the ADB shell identity to access locations blocked by Android storage restrictions.</string>
+    <string name="pref_shizuku_root_enable">Shizuku+ (root/Sui)</string>
+    <string name="pref_shizuku_root_summary">Require UID 0 through Sui or a root-started Shizuku service. Operations fail instead of silently falling back to shell.</string>
+    <string name="pref_shizuku_status_unavailable">Shizuku is not running. Install or start Shizuku, then retry.</string>
+    <string name="pref_shizuku_status_unsupported">This Shizuku version is unsupported. Version 11 or newer is required.</string>
+    <string name="pref_shizuku_status_permission">Permission is required.</string>
+    <string name="pref_shizuku_status_connecting">Permission granted; connecting to the privileged process service.</string>
+    <string name="pref_shizuku_status_shell">Ready: Shizuku shell (UID 2000).</string>
+    <string name="pref_shizuku_status_root">Ready: Shizuku+ root (UID 0).</string>
+    <string name="pref_shizuku_status_root_required">Shizuku is connected as shell. Start Sui or Shizuku as root for Shizuku+.</string>
+    <string name="pref_shizuku_grant">Grant permission</string>
+    <string name="pref_shizuku_retry">Check again</string>
+    <string name="pref_shizuku_permission_failed">Could not request permission. Make sure Shizuku is running.</string>
     <string name="pref_saf_enable">Enable SAF Client Preview</string>
     <string name="pref_saf_summary">EXPERIMENTAL: Access SD cards and other external storage devices</string>
     <string name="pref_saf_add_permission">Add Storage</string>

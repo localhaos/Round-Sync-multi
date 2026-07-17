@@ -1,0 +1,56 @@
+# Round Sync PC
+
+Natywny klient LAN dla Windows, łączący się bezpośrednio z serwerem WebDAV uruchomionym przez Round Sync na Androidzie. Połączenie nie korzysta z chmury ani serwera pośredniczącego.
+
+## Uruchomienie
+
+1. Na telefonie otwórz w Round Sync zdalny lub lokalny katalog, który chcesz udostępnić.
+2. Wybierz `Serve…` i zaznacz `PC / LAN mode`. Aplikacja ustawi WebDAV, dostęp LAN oraz wygeneruje tymczasową nazwę użytkownika i silne hasło; możesz je zmienić przed zatwierdzeniem.
+3. Na Windows uruchom `RoundSync-PC.exe` z artefaktu workflow `Desktop client`.
+4. Wybierz `Wykryj w LAN`, wskaż telefon, wpisz te same dane logowania i wybierz `Połącz`.
+
+Klient obsługuje przeglądanie katalogów, wysyłanie i pobieranie plików, tworzenie katalogów oraz usuwanie. Jeżeli router blokuje broadcast UDP, wpisz ręcznie adres pokazany w powiadomieniu Androida, np. `http://192.168.1.25:8080/`.
+
+## Montowanie pod literą dysku
+
+Po poprawnym połączeniu wybierz literę od `D:` do `Z:` i naciśnij `Zamontuj dysk`. Opcja `Po ponownym logowaniu` zapisuje mapowanie w profilu użytkownika Windows. Przycisk `Odmontuj` usuwa bieżące mapowanie oraz jego wpis trwały.
+
+Implementacja:
+
+- używa natywnego Windows `WNetAddConnection2W` i systemowego klienta WebDAV;
+- konwertuje adres HTTP/HTTPS na ścieżkę `DavWWWRoot`, także dla niestandardowego portu;
+- przekazuje poświadczenia bezpośrednio do WinAPI, bez umieszczania hasła w argumentach procesu;
+- wykrywa zajętą literę, błędne dane logowania i konflikt istniejącej sesji WebDAV;
+- w razie potrzeby uruchamia usługę `WebClient`;
+- dla Basic Auth przez HTTP uruchamia przez UAC jednorazowy konfigurator, który ustawia `BasicAuthLevel=2` i usługę `WebClient`; samo mapowanie pozostaje w zwykłej sesji użytkownika, dzięki czemu jest widoczne w Eksploratorze.
+
+Windows domyślnie blokuje Basic Auth przez nieszyfrowany HTTP. Zmiana `BasicAuthLevel=2` obniża ochronę systemowego klienta WebDAV, dlatego mapowania HTTP należy używać wyłącznie w zaufanej sieci LAN. Dla sieci niezaufanych należy użyć HTTPS albo tunelu VPN.
+
+## Wymagania i bezpieczeństwo
+
+- telefon i PC muszą znajdować się w tej samej sieci IP;
+- izolacja klientów Wi-Fi/AP isolation musi być wyłączona;
+- discovery wykorzystuje UDP/21080, a WebDAV domyślnie TCP/8080;
+- odpowiedź discovery nie zawiera nazwy użytkownika, hasła ani ścieżki udziału;
+- poświadczenia są przechowywane wyłącznie w pamięci procesu klienta;
+- standardowy serwer Round Sync używa HTTP i Basic Auth, dlatego tryb LAN należy uruchamiać wyłącznie w zaufanej sieci. Dla sieci niezaufanych użyj tunelu VPN.
+
+Firewall Windows nie wymaga reguły przychodzącej dla serwera, ponieważ PC działa jako klient. Firewall lub polityka routera musi jednak dopuszczać odpowiedź UDP oraz połączenie wychodzące TCP do telefonu.
+
+## Uruchomienie ze źródeł
+
+Wymagany jest Python 3.10+ z Tk:
+
+```powershell
+cd desktop
+py -3 -m roundsync_pc
+```
+
+Można również uruchomić `desktop\run_windows.bat`.
+
+Testy nie wymagają dostępu do Internetu:
+
+```powershell
+cd desktop
+py -3 -m unittest discover -s tests -v
+```

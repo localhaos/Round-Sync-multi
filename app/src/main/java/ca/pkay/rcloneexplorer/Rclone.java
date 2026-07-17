@@ -51,6 +51,7 @@ import ca.pkay.rcloneexplorer.Items.FilterEntry;
 import ca.pkay.rcloneexplorer.Items.RemoteItem;
 import ca.pkay.rcloneexplorer.Items.SyncDirectionObject;
 import ca.pkay.rcloneexplorer.rclone.Provider;
+import ca.pkay.rcloneexplorer.shizuku.ShizukuProcessManager;
 import ca.pkay.rcloneexplorer.util.FLog;
 import ca.pkay.rcloneexplorer.util.SyncLog;
 import es.dmoral.toasty.Toasty;
@@ -421,11 +422,13 @@ public class Rclone {
     }
 
     private Process getRuntimeProcess(String[] command, String[] env) throws IOException {
-        try{
-            Runtime.getRuntime().exec(rclone);
-        } catch (IOException e){
-            FLog.e("rclone", "Error executing rclone!" +e.getMessage());
-            throw new IOException("Error executing rclone!" +e.getMessage());
+        if (ShizukuProcessManager.shouldUsePrivilegedProcess(context, command)) {
+            return ShizukuProcessManager.startProcess(
+                    context,
+                    command,
+                    env,
+                    rcloneConf,
+                    context.getCacheDir().getAbsolutePath());
         }
         return Runtime.getRuntime().exec(command, env);
     }

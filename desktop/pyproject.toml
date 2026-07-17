@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roundsync-pc"
+version = "1.1.0"
+description = "Round Sync WebDAV LAN client for desktop systems"
+requires-python = ">=3.10"
+license = "GPL-3.0-only"
+authors = [{ name = "Round Sync contributors" }]
+dependencies = []
+
+[project.gui-scripts]
+roundsync-pc = "roundsync_pc.app:main"
+
+[tool.setuptools]
+packages = ["roundsync_pc"]
