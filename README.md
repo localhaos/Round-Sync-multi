@@ -84,12 +84,12 @@ The intent needs the following:
 ## Libraries
 - [rclone](https://github.com/rclone/rclone) - Calling this a library is an understatement. Without rclone, there would not be Round Sync. See https://rclone.org/donate/ to support rclone.
 - [Jetpack AndroidX](https://developer.android.com/license)
-- [Floating Action Button SpeedDial](https://github.com/leinardi/FloatingActionButtonSpeedDial) - A Floating Action Button Speed Dial implementation for Android that follows Material Design specification.
+- [Floating Action Button SpeedDial](https://github.com/leinardi/FloatingActionButtonSpeedDial) - A Floating Action Button Speed Dial implementation for Android that follows the Material Design specification.
 - [Glide](https://github.com/bumptech/glide) - An image loading and caching library for Android focused on smooth scrolling.
-- [MarkdownJ](https://github.com/myabc/markdownj-core) - converts markdown into HTML.
+- [MarkdownJ](https://github.com/myabc/markdownj) - converts markdown into HTML.
 - [Material Design Icons](https://github.com/Templarian/MaterialDesign) - 2200+ Material Design Icons from the Community.
-- [Recyclerview Animators](https://github.com/wasabeef/recyclerview-animators) - which easily add itemanimator to RecyclerView items.
-- [Toasty](https://github.com/GrenderG/Toasty) - The usual Toast, but with steroids.
+- [Recyclerview Animators](https://github.com/wasabeef/recyclerview-animators) - The usual Toast, but with steroids.
+- [Toasty](https://github.com/GrenderG:Toasty:1.5.2) - The usual Toast, but with steroids.
 - Icons from [Flaticon](https://www.flaticon.com) courtesy of [Smashicons](https://www.flaticon.com/authors/smashicons) and [Freepik](https://www.flaticon.com/authors/freepik)
 
 
