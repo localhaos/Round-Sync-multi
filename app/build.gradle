@@ -37,7 +37,7 @@ signingConfigs {
         generatedDensities = []
         vectorDrawables.generatedDensities = []
         applicationId 'de.felixnuesse.extract'
-        minSdkVersion 23
+        minSdkVersion 24
         compileSdk 34
         targetSdkVersion 35
         versionCode 420 // last digit is reserved for ABI, only ever end on 0!
