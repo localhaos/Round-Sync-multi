@@ -63,6 +63,10 @@ If you don't know which version to pick use ```roundsync-<version>-universal-rel
 ## Usage
 [See the documentation](https://roundsync.com/).
 
+### Windows WebDAV drive
+
+The [automatic Windows WebDAV drive mounter](tools/windows-webdav/README.md) discovers the current Android IP in the LAN and mounts the server under a selected or automatically allocated drive letter. No IP address, drive letter, user name, or password is embedded in the implementation.
+
 
 ## Intents
 This app includes the ability to launch an intent! Create a task to sync to a remote, and copy it's id (via the treedot-menu)

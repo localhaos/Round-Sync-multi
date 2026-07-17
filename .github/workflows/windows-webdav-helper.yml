@@ -1,0 +1,55 @@
+name: Windows WebDAV helper
+
+on:
+  push:
+    paths:
+      - 'tools/windows-webdav/**'
+      - '.github/workflows/windows-webdav-helper.yml'
+  pull_request:
+    paths:
+      - 'tools/windows-webdav/**'
+      - '.github/workflows/windows-webdav-helper.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Parse Windows PowerShell script
+        shell: powershell
+        run: |
+          $scriptPath = Resolve-Path 'tools/windows-webdav/Mount-RoundSync-WebDAV.ps1'
+          $tokens = $null
+          $errors = $null
+
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            $scriptPath,
+            [ref] $tokens,
+            [ref] $errors
+          ) | Out-Null
+
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object {
+              Write-Error ("{0}:{1}:{2}: {3}" -f `
+                $scriptPath,
+                $_.Extent.StartLineNumber,
+                $_.Extent.StartColumnNumber,
+                $_.Message)
+            }
+            exit 1
+          }
+
+          Write-Host "PowerShell parser validation passed. Tokens: $($tokens.Count)"
+
+      - name: Verify launcher files
+        shell: cmd
+        run: |
+          if not exist "tools\windows-webdav\Mount-RoundSync-WebDAV.cmd" exit /b 1
+          if not exist "tools\windows-webdav\README.md" exit /b 1
