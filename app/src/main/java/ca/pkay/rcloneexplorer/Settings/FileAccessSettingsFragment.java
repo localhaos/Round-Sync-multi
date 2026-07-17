@@ -30,8 +30,10 @@ import ca.pkay.rcloneexplorer.Rclone;
 import ca.pkay.rcloneexplorer.RemoteConfig.RemoteConfigHelper;
 import ca.pkay.rcloneexplorer.Services.RcdService;
 import ca.pkay.rcloneexplorer.VirtualContentProvider;
+import ca.pkay.rcloneexplorer.shizuku.ShizukuProcessManager;
 import es.dmoral.toasty.Toasty;
 import io.github.x0b.safdav.file.SafConstants;
+import rikka.shizuku.Shizuku;
 
 import java.util.List;
 
@@ -45,6 +47,12 @@ public class FileAccessSettingsFragment extends Fragment {
 
     private Context context;
     private ViewGroup fileAccessAll;
+    private View shizukuEnabledContainer;
+    private Switch shizukuEnabledSwitch;
+    private View shizukuRootContainer;
+    private Switch shizukuRootSwitch;
+    private TextView shizukuStatus;
+    private Button shizukuPermissionButton;
     private View safEnabledView;
     private Switch safEnabledSwitch;
     private View vcpEnabledContainer;
@@ -61,6 +69,17 @@ public class FileAccessSettingsFragment extends Fragment {
     private View vcpGrantAllContainer;
     private Switch vcpGrantAllSwitch;
     private Rclone rclone;
+
+    private final Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener =
+            this::updateShizukuState;
+    private final Shizuku.OnBinderDeadListener shizukuBinderDeadListener =
+            this::updateShizukuState;
+    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionResultListener =
+            (requestCode, grantResult) -> {
+                if (requestCode == ShizukuProcessManager.PERMISSION_REQUEST_CODE) {
+                    updateShizukuState();
+                }
+            };
 
     public static FileAccessSettingsFragment newInstance() {
         return new FileAccessSettingsFragment();
@@ -97,6 +116,24 @@ public class FileAccessSettingsFragment extends Fragment {
         super.onAttach(context);
         this.context = context;
         rclone = new Rclone(context);
+        ShizukuProcessManager.initialize(context);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
+        Shizuku.addBinderDeadListener(shizukuBinderDeadListener);
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionResultListener);
+        updateShizukuState();
+    }
+
+    @Override
+    public void onStop() {
+        Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
+        Shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionResultListener);
+        super.onStop();
     }
 
     @Override
@@ -106,6 +143,12 @@ public class FileAccessSettingsFragment extends Fragment {
     }
 
     private void getViews(View view) {
+        shizukuEnabledContainer = view.findViewById(R.id.enable_shizuku_container);
+        shizukuEnabledSwitch = view.findViewById(R.id.enable_shizuku_switch);
+        shizukuRootContainer = view.findViewById(R.id.enable_shizuku_root_container);
+        shizukuRootSwitch = view.findViewById(R.id.enable_shizuku_root_switch);
+        shizukuStatus = view.findViewById(R.id.shizuku_status);
+        shizukuPermissionButton = view.findViewById(R.id.shizuku_permission_button);
         safEnabledView = view.findViewById(R.id.enable_saf_view);
         safEnabledSwitch = view.findViewById(R.id.enable_saf_switch);
         fileAccessAll = view.findViewById(R.id.file_access_settings_all);
@@ -123,6 +166,12 @@ public class FileAccessSettingsFragment extends Fragment {
 
     private void setDefaultStates() {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean shizukuEnabled = sharedPreferences.getBoolean(
+                getString(R.string.pref_key_shizuku_enabled), false);
+        shizukuEnabledSwitch.setChecked(shizukuEnabled);
+        shizukuRootSwitch.setChecked(sharedPreferences.getBoolean(
+                getString(R.string.pref_key_shizuku_root), false));
+        setShizukuRootControlsEnabled(shizukuEnabled);
         boolean safEnabled = sharedPreferences.getBoolean(getString(R.string.pref_key_enable_saf), false);
         safEnabledSwitch.setChecked(safEnabled);
         boolean refreshLaEnabled = sharedPreferences.getBoolean(getString(R.string.pref_key_refresh_local_aliases), true);
@@ -143,6 +192,18 @@ public class FileAccessSettingsFragment extends Fragment {
     }
 
     private void setClickListeners() {
+        shizukuEnabledContainer.setOnClickListener(
+                v -> shizukuEnabledSwitch.setChecked(!shizukuEnabledSwitch.isChecked()));
+        shizukuEnabledSwitch.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> setShizukuEnabled(isChecked));
+        shizukuRootContainer.setOnClickListener(v -> {
+            if (shizukuRootSwitch.isEnabled()) {
+                shizukuRootSwitch.setChecked(!shizukuRootSwitch.isChecked());
+            }
+        });
+        shizukuRootSwitch.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> setShizukuRootRequired(isChecked));
+        shizukuPermissionButton.setOnClickListener(v -> requestShizukuPermission());
         safEnabledView.setOnClickListener(v -> safEnabledSwitch.setChecked(!safEnabledSwitch.isChecked()));
         safEnabledSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> setSafEnabled(isChecked));
         addPermissionBtn.setOnClickListener(v -> addRoot());
@@ -155,6 +216,82 @@ public class FileAccessSettingsFragment extends Fragment {
         vcpDeclareLocalSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> setDeclareLocalEnabled(isChecked));
         vcpGrantAllContainer.setOnClickListener(v -> vcpGrantAllSwitch.setChecked(!vcpGrantAllSwitch.isChecked()));
         vcpGrantAllSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> setGrantAllEnabled(isChecked));
+    }
+
+    private void setShizukuEnabled(boolean enabled) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(getString(R.string.pref_key_shizuku_enabled), enabled)
+                .apply();
+        setShizukuRootControlsEnabled(enabled);
+        if (enabled) {
+            ShizukuProcessManager.bindIfPossible();
+            if (ShizukuProcessManager.getState(context)
+                    == ShizukuProcessManager.State.PERMISSION_REQUIRED) {
+                requestShizukuPermission();
+            }
+        } else {
+            ShizukuProcessManager.unbind();
+        }
+        updateShizukuState();
+    }
+
+    private void setShizukuRootRequired(boolean required) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(getString(R.string.pref_key_shizuku_root), required)
+                .apply();
+        updateShizukuState();
+    }
+
+    private void setShizukuRootControlsEnabled(boolean enabled) {
+        shizukuRootContainer.setEnabled(enabled);
+        shizukuRootSwitch.setEnabled(enabled);
+        shizukuRootContainer.setAlpha(enabled ? 1.0f : 0.5f);
+    }
+
+    private void requestShizukuPermission() {
+        if (!ShizukuProcessManager.requestPermission(context)) {
+            Toast.makeText(context, R.string.pref_shizuku_permission_failed, Toast.LENGTH_LONG).show();
+        }
+        updateShizukuState();
+    }
+
+    private void updateShizukuState() {
+        if (!isAdded() || context == null || shizukuStatus == null) {
+            return;
+        }
+        ShizukuProcessManager.State state = ShizukuProcessManager.getState(context);
+        boolean rootRequired = PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(getString(R.string.pref_key_shizuku_root), false);
+        int statusResource;
+        switch (state) {
+            case UNSUPPORTED:
+                statusResource = R.string.pref_shizuku_status_unsupported;
+                break;
+            case PERMISSION_REQUIRED:
+                statusResource = R.string.pref_shizuku_status_permission;
+                break;
+            case CONNECTING:
+                statusResource = R.string.pref_shizuku_status_connecting;
+                break;
+            case SHELL:
+                statusResource = rootRequired
+                        ? R.string.pref_shizuku_status_root_required
+                        : R.string.pref_shizuku_status_shell;
+                break;
+            case ROOT:
+                statusResource = R.string.pref_shizuku_status_root;
+                break;
+            case UNAVAILABLE:
+            default:
+                statusResource = R.string.pref_shizuku_status_unavailable;
+                break;
+        }
+        shizukuStatus.setText(statusResource);
+        shizukuPermissionButton.setText(state == ShizukuProcessManager.State.PERMISSION_REQUIRED
+                ? R.string.pref_shizuku_grant
+                : R.string.pref_shizuku_retry);
     }
 
     private void setSafEnabled(boolean isChecked) {

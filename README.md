@@ -40,6 +40,7 @@ Visit [https://roundsync.com](https://roundsync.com) for more information!
 - **File Management** (list, view, download, upload, move, rename, delete files and folders)
 - **Streaming** (Stream media files, serve files and directories over FTP, HTTP, WebDAV or DLNA)
 - **PC LAN client** (Automatically discover an Android WebDAV share and manage files from Windows)
+- **Shizuku and Shizuku+** (Run rclone as ADB shell or UID 0 through Sui/root Shizuku)
 - **Integration** (Access local storage devices and share files with the application to store them on a remote)
 - **Many cloud storage providers** (all via rclone config import, some without ui-setup)
 - **Material 3 Design** (Dark theme)
@@ -71,6 +72,17 @@ open a directory, select **Serve…**, and enable **PC / LAN mode**. The Android
 temporary credentials that you enter in the desktop client.
 The desktop app discovers the phone over UDP and connects directly to its WebDAV share. GitHub
 Actions builds a single-file `RoundSync-PC.exe`; no cloud relay is used.
+
+### Shizuku and Shizuku+
+
+Open **Settings → File Access → Privileged file access** and enable **Use Shizuku**. Grant the
+permission in Shizuku when prompted. Standard mode runs rclone as the ADB shell identity (UID
+2000). Enable **Shizuku+ (root/Sui)** to require UID 0 from Sui or a root-started Shizuku service.
+
+The feature is opt-in and never silently downgrades Shizuku+ to shell. Commands that modify
+`rclone.conf` continue to run in the normal app process so configuration changes remain durable.
+App-private source or destination paths require Shizuku+; standard Shizuku reports an error for
+those paths instead of starting a transfer that cannot access them.
 
 
 ## Intents
