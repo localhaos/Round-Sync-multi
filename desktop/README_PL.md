@@ -11,6 +11,21 @@ Natywny klient LAN dla Windows, łączący się bezpośrednio z serwerem WebDAV 
 
 Klient obsługuje przeglądanie katalogów, wysyłanie i pobieranie plików, tworzenie katalogów oraz usuwanie. Jeżeli router blokuje broadcast UDP, wpisz ręcznie adres pokazany w powiadomieniu Androida, np. `http://192.168.1.25:8080/`.
 
+## Montowanie pod literą dysku
+
+Po poprawnym połączeniu wybierz literę od `D:` do `Z:` i naciśnij `Zamontuj dysk`. Opcja `Po ponownym logowaniu` zapisuje mapowanie w profilu użytkownika Windows. Przycisk `Odmontuj` usuwa bieżące mapowanie oraz jego wpis trwały.
+
+Implementacja:
+
+- używa natywnego Windows `WNetAddConnection2W` i systemowego klienta WebDAV;
+- konwertuje adres HTTP/HTTPS na ścieżkę `DavWWWRoot`, także dla niestandardowego portu;
+- przekazuje poświadczenia bezpośrednio do WinAPI, bez umieszczania hasła w argumentach procesu;
+- wykrywa zajętą literę, błędne dane logowania i konflikt istniejącej sesji WebDAV;
+- w razie potrzeby uruchamia usługę `WebClient`;
+- dla Basic Auth przez HTTP uruchamia przez UAC jednorazowy konfigurator, który ustawia `BasicAuthLevel=2` i usługę `WebClient`; samo mapowanie pozostaje w zwykłej sesji użytkownika, dzięki czemu jest widoczne w Eksploratorze.
+
+Windows domyślnie blokuje Basic Auth przez nieszyfrowany HTTP. Zmiana `BasicAuthLevel=2` obniża ochronę systemowego klienta WebDAV, dlatego mapowania HTTP należy używać wyłącznie w zaufanej sieci LAN. Dla sieci niezaufanych należy użyć HTTPS albo tunelu VPN.
+
 ## Wymagania i bezpieczeństwo
 
 - telefon i PC muszą znajdować się w tej samej sieci IP;
