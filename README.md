@@ -88,8 +88,8 @@ The intent needs the following:
 - [Glide](https://github.com/bumptech/glide) - An image loading and caching library for Android focused on smooth scrolling.
 - [MarkdownJ](https://github.com/myabc/markdownj) - converts markdown into HTML.
 - [Material Design Icons](https://github.com/Templarian/MaterialDesign) - 2200+ Material Design Icons from the Community.
-- [Recyclerview Animators](https://github.com/wasabeef/recyclerview-animators) - The usual Toast, but with steroids.
-- [Toasty](https://github.com/GrenderG:Toasty:1.5.2) - The usual Toast, but with steroids.
+- [Recyclerview Animators](https://github.com/wasabeef/recyclerview-animators) - An Android Animation library which easily add itemanimator to RecyclerView items.
+- [Toasty](https://github.com/GrenderG/Toasty) - The usual Toast, but with steroids.
 - Icons from [Flaticon](https://www.flaticon.com) courtesy of [Smashicons](https://www.flaticon.com/authors/smashicons) and [Freepik](https://www.flaticon.com/authors/freepik)
 
 
