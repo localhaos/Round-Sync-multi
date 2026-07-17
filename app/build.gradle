@@ -55,6 +55,7 @@ signingConfigs {
     }
 
     buildFeatures {
+        aidl true
         viewBinding true
     }
 
