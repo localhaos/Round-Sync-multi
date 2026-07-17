@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import queue
+import sys
 import tkinter as tk
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
@@ -8,6 +9,16 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Callable, TypeVar
 
 from roundsync_pc.discovery import DiscoveredDevice, DiscoveryClient
+from roundsync_pc.mount import (
+    DRIVE_LETTERS,
+    DriveMountError,
+    ElevationRequired,
+    MountResult,
+    WindowsDriveMounter,
+    configure_windows_webdav_as_administrator,
+    is_windows,
+    run_privileged_configuration_if_requested,
+)
 from roundsync_pc.webdav import WebDavClient, WebDavEntry, WebDavError
 
 
@@ -20,8 +31,8 @@ class RoundSyncDesktopApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Round Sync PC")
-        self.root.geometry("1040x680")
-        self.root.minsize(820, 520)
+        self.root.geometry("1040x720")
+        self.root.minsize(820, 560)
 
         self.client: WebDavClient | None = None
         self.current_path: tuple[str, ...] = ()
@@ -32,11 +43,14 @@ class RoundSyncDesktopApp:
             tuple[Future[object], Callable[[object], None] | None]
         ] = queue.Queue()
         self.busy = False
+        self.drive_mounter: WindowsDriveMounter | None = None
 
         self.endpoint = tk.StringVar(value="http://ADRES-TELEFONU:8080/")
         self.username = tk.StringVar()
         self.password = tk.StringVar()
         self.device_selection = tk.StringVar()
+        self.drive_letter = tk.StringVar(value="R:")
+        self.drive_persistent = tk.BooleanVar(value=True)
         self.path_text = tk.StringVar(value="/")
         self.status_text = tk.StringVar(
             value="W telefonie uruchom Udostępnij → PC / LAN mode, następnie wybierz Wykryj."
@@ -80,8 +94,40 @@ class RoundSyncDesktopApp:
             row=2, column=3, sticky="ew", pady=3
         )
 
+        ttk.Label(connection, text="Dysk Windows:").grid(row=3, column=0, sticky="w", pady=3)
+        drive_actions = ttk.Frame(connection)
+        drive_actions.grid(row=3, column=1, columnspan=3, sticky="ew", pady=3)
+
+        self.drive_box = ttk.Combobox(
+            drive_actions,
+            textvariable=self.drive_letter,
+            values=DRIVE_LETTERS,
+            state="readonly",
+            width=5,
+        )
+        self.drive_box.pack(side="left", padx=(0, 8))
+        ttk.Checkbutton(
+            drive_actions,
+            text="Po ponownym logowaniu",
+            variable=self.drive_persistent,
+        ).pack(side="left", padx=(0, 8))
+
+        windows_state = "normal" if is_windows() else "disabled"
+        ttk.Button(
+            drive_actions,
+            text="Zamontuj dysk",
+            command=self.mount_drive,
+            state=windows_state,
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            drive_actions,
+            text="Odmontuj",
+            command=self.unmount_drive,
+            state=windows_state,
+        ).pack(side="left", padx=4)
+
         ttk.Button(connection, text="Połącz", command=self.connect).grid(
-            row=3, column=3, sticky="e", pady=(8, 0)
+            row=4, column=3, sticky="e", pady=(8, 0)
         )
 
         toolbar = ttk.Frame(self.root, padding=(10, 5))
@@ -147,7 +193,9 @@ class RoundSyncDesktopApp:
             return
         self.device_box.current(0)
         self._apply_device(self.devices[0])
-        self.status_text.set(f"Znaleziono urządzenia: {len(self.devices)}. Wprowadź dane logowania i połącz.")
+        self.status_text.set(
+            f"Znaleziono urządzenia: {len(self.devices)}. Wprowadź dane logowania i połącz."
+        )
 
     def _device_selected(self, _event: tk.Event[tk.Misc]) -> None:
         index = self.device_box.current()
@@ -158,7 +206,8 @@ class RoundSyncDesktopApp:
         self.endpoint.set(device.endpoint)
         requirement = "wymaga logowania" if device.authentication_required else "nie wymaga logowania"
         self.status_text.set(
-            f"{device.name}, Round Sync {device.app_version}, {device.address}:{device.port}, {requirement}."
+            f"{device.name}, Round Sync {device.app_version}, "
+            f"{device.address}:{device.port}, {requirement}."
         )
 
     def connect(self) -> None:
@@ -183,6 +232,66 @@ class RoundSyncDesktopApp:
         self.current_path = ()
         self._render_entries(entries)
         self.status_text.set(f"Połączono z {self.client.host}:{self.client.port}.")
+
+    def mount_drive(self) -> None:
+        if self.client is None:
+            self._not_connected()
+            return
+        try:
+            mounter = self._get_drive_mounter()
+        except DriveMountError as error:
+            self._show_error(error)
+            return
+
+        endpoint = self.endpoint.get()
+        username = self.username.get()
+        password = self.password.get()
+        letter = self.drive_letter.get()
+        persistent = self.drive_persistent.get()
+
+        self._submit(
+            f"Montowanie udziału jako {letter}…",
+            lambda: mounter.mount(
+                endpoint,
+                letter,
+                username,
+                password,
+                persistent=persistent,
+            ),
+            self._drive_mounted,
+        )
+
+    def _drive_mounted(self, result: object) -> None:
+        mounted = result  # type: ignore[assignment]
+        assert isinstance(mounted, MountResult)
+        if mounted.already_mounted:
+            self.status_text.set(f"{mounted.letter} jest już zamontowany jako {mounted.remote_name}.")
+            return
+        persistence = "trwałe" if mounted.persistent else "do wylogowania"
+        self.status_text.set(
+            f"Zamontowano {mounted.remote_name} jako {mounted.letter} ({persistence})."
+        )
+
+    def unmount_drive(self) -> None:
+        try:
+            mounter = self._get_drive_mounter()
+        except DriveMountError as error:
+            self._show_error(error)
+            return
+
+        letter = self.drive_letter.get()
+        self._submit(
+            f"Odmontowywanie {letter}…",
+            lambda: mounter.unmount(letter),
+            lambda removed: self.status_text.set(
+                f"Odmontowano {letter}." if removed else f"{letter} nie był zamontowany przez WebDAV."
+            ),
+        )
+
+    def _get_drive_mounter(self) -> WindowsDriveMounter:
+        if self.drive_mounter is None:
+            self.drive_mounter = WindowsDriveMounter()
+        return self.drive_mounter
 
     def refresh(self) -> None:
         if self.client is None:
@@ -284,7 +393,11 @@ class RoundSyncDesktopApp:
             return
         name = name.strip()
         if not name or name in {".", ".."} or any(character in name for character in "/\\\x00"):
-            messagebox.showerror("Nieprawidłowa nazwa", "Podaj pojedynczą, poprawną nazwę folderu.", parent=self.root)
+            messagebox.showerror(
+                "Nieprawidłowa nazwa",
+                "Podaj pojedynczą, poprawną nazwę folderu.",
+                parent=self.root,
+            )
             return
         path = (*self.current_path, name)
         self._submit(
@@ -363,7 +476,9 @@ class RoundSyncDesktopApp:
         if not entry.path:
             raise ValueError("Serwer zwrócił pustą nazwę pliku")
         filename = entry.path[-1]
-        if not filename or filename in {".", ".."} or any(character in filename for character in "/\\\x00"):
+        if not filename or filename in {".", ".."} or any(
+            character in filename for character in "/\\\x00"
+        ):
             raise ValueError(f"Serwer zwrócił niedozwoloną nazwę pliku: {filename!r}")
         return root / filename
 
@@ -401,6 +516,26 @@ class RoundSyncDesktopApp:
             self.root.after(self.POLL_INTERVAL_MS, self._poll_results)
 
     def _show_error(self, error: Exception) -> None:
+        if isinstance(error, ElevationRequired):
+            text = str(error)
+            self.status_text.set(f"Błąd: {text}")
+            if messagebox.askyesno(
+                "Wymagane uprawnienia administratora",
+                text + "\n\nUruchomić jednorazowy konfigurator WebClient przez UAC?",
+                parent=self.root,
+            ):
+                endpoint = self.endpoint.get()
+                authenticated = bool(self.username.get() or self.password.get())
+                self._submit(
+                    "Konfigurowanie systemowego klienta WebDAV…",
+                    lambda: configure_windows_webdav_as_administrator(
+                        endpoint,
+                        authenticated,
+                    ),
+                    lambda _result: self.mount_drive(),
+                )
+            return
+
         if isinstance(error, WebDavError) and error.status == 401:
             text = "Serwer odrzucił dane logowania. Sprawdź użytkownika i hasło ustawione w telefonie."
         elif isinstance(error, WebDavError) and error.status == 403:
@@ -411,7 +546,11 @@ class RoundSyncDesktopApp:
         messagebox.showerror("Błąd Round Sync", text, parent=self.root)
 
     def _not_connected(self) -> None:
-        messagebox.showinfo("Brak połączenia", "Najpierw połącz się z telefonem.", parent=self.root)
+        messagebox.showinfo(
+            "Brak połączenia",
+            "Najpierw połącz się z telefonem.",
+            parent=self.root,
+        )
 
     def close(self) -> None:
         self.executor.shutdown(wait=False, cancel_futures=True)
@@ -419,6 +558,10 @@ class RoundSyncDesktopApp:
 
 
 def main() -> None:
+    helper_exit_code = run_privileged_configuration_if_requested(sys.argv[1:])
+    if helper_exit_code is not None:
+        raise SystemExit(helper_exit_code)
+
     root = tk.Tk()
     try:
         style = ttk.Style(root)
